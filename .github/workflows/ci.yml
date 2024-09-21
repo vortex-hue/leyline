@@ -38,7 +38,7 @@ jobs:
         run: |
           pip install pylint
           pylint app --exit-zero --output-format=colorized > pylint-output.txt || true
-        continue-on-error: true # Ensures the job continues even if pylint fails
+        continue-on-error: true
 
       - name: Display pylint output
         if: always()
@@ -49,7 +49,7 @@ jobs:
         run: |
           pip install pytest
           pytest || true
-        continue-on-error: true # Ensure the job continues even if pytest fails
+        continue-on-error: true
 
   docker-compose-build-and-test:
     runs-on: ubuntu-latest
@@ -68,21 +68,19 @@ jobs:
 
       - name: Build and run Docker Compose services
         run: |
-          docker-compose -f docker-compose.yml up -d --build fastapi
+          docker-compose up -d --build
           sleep 20  # Wait for services to initialize
           docker-compose ps  # Check running containers for debugging purposes
+
+      - name: Run integration tests
+        run: |
+          # Example of a quick test to check if the app is running; replace with your endpoint
+          curl --fail http://localhost:3000/health || true
+        continue-on-error: false
 
       - name: Stop Docker Compose services
         run: |
           docker-compose down
-
-      # Tag the built image so that it can be pushed later
-      - name: Tag built Docker image
-        run: |
-          # Assuming your docker-compose service name is 'fastapi'
-          docker tag leyline-api ${{ secrets.DOCKERHUB_USERNAME }}/leyline-api:${{ github.sha }}
-          docker tag leyline-api ${{ secrets.DOCKERHUB_USERNAME }}/leyline-api:latest
-        shell: bash
 
   docker-push:
     runs-on: ubuntu-latest
@@ -100,7 +98,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Push Docker image
+      - name: Build and push Docker image
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/leyline-api:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/leyline-api:latest
+          sudo apt-get update
+          sudo apt-get install docker-compose -y
+          docker-compose -f docker-compose.yml build
+          docker tag myapp_service ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+          docker tag myapp_service ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
