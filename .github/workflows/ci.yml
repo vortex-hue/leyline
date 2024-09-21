@@ -74,6 +74,7 @@ jobs:
 
       - name: Run integration tests
         run: |
+          # Example of a quick test to check if the app is running; replace with your endpoint
           curl --fail http://localhost:3000/health || true
         continue-on-error: false
 
@@ -99,6 +100,8 @@ jobs:
 
       - name: Build and push Docker image
         run: |
+          sudo apt-get update
+          sudo apt-get install docker-compose -y
           docker-compose -f docker-compose.yml build
           docker tag myapp_service ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
