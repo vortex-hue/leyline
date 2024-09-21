@@ -3,6 +3,7 @@ global:
 
 scrape_configs:
   - job_name: "leyline-api"
+    scrape_interval: 5s
     static_configs:
       - targets: ["leyline-api:3000"]
 

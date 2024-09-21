@@ -28,6 +28,8 @@ A highly optimized and efficient FastAPI-based DNS lookup service that provides 
 - Kubernetes readiness
 - CI/CD pipeline with GitHub Actions
 - Helm chart for easy deployment
+- Grafana & Prometheus
+- Rate Limiter
 
 ## **Endpoints**
 
