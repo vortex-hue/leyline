@@ -1,4 +1,4 @@
-# FastAPI DNS Service
+# LeyLine DNS Service
 
 A highly optimized and efficient FastAPI-based DNS lookup service that provides several endpoints for domain resolution, IP validation, query history, and health checks. This service is designed with scalability, security, and Kubernetes readiness in mind, making it suitable for production environments.
 
@@ -221,4 +221,5 @@ This project is licensed under the MIT License.
 ```rust
 This `README.md` covers everything you need to start, deploy, and manage the FastAPI application in different environments, while highlighting important features, deployment strategies, and integration points for Kubernetes, Docker, and CI/CD. It serves as a comprehensive guide for anyone who wants to understand or deploy your project.
 ```
+
 # leyline

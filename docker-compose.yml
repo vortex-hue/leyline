@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    container_name: leyline-api
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://leyline_user:password@db:5432/leyline_db
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: leyline_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: leyline_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
