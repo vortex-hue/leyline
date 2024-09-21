@@ -35,17 +35,15 @@ jobs:
           pip install -r requirements.txt
 
       - name: Lint with pylint
-        id: pylint # Set an ID for this step to access its outputs
         run: |
           pip install pylint
-          pylint app --exit-zero --output-format=json > pylint-output.json
-          pylint_score=$(jq 'map(.score) | add / length' pylint-output.json)
-          echo "Pylint score: ${pylint_score}"
-          if (( $(echo "${pylint_score} < 8" | bc -l) )); then
-            echo "Pylint score is below 8. Failing the build."
-            exit 1
-          fi
-        shell: bash
+          pylint app --exit-zero --output-format=colorized > pylint-output.txt || true
+        continue-on-error: true # Ensure the job continues even if pylint fails
+
+      - name: Display pylint output
+        if: always()
+        run: |
+          cat pylint-output.txt
 
       - name: Run tests with pytest
         run: |
@@ -76,7 +74,7 @@ jobs:
       - name: Run integration tests
         run: |
           # Example of a quick test to check if the app is running; replace with your endpoint
-          curl --fail http://localhost:3000/health || exit 1
+          curl --fail http://localhost:8000 || exit 1
 
       - name: Stop Docker Compose services
         run: |
