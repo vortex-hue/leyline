@@ -38,7 +38,7 @@ jobs:
         run: |
           pip install pylint
           pylint app --exit-zero --output-format=colorized > pylint-output.txt || true
-        continue-on-error: true # Ensures the job continues even if pylint fails
+        continue-on-error: true
 
       - name: Display pylint output
         if: always()
@@ -49,7 +49,7 @@ jobs:
         run: |
           pip install pytest
           pytest || true
-        continue-on-error: true # Ensure the job continues even if pytest fails
+        continue-on-error: true
 
   docker-compose-build-and-test:
     runs-on: ubuntu-latest
@@ -74,9 +74,8 @@ jobs:
 
       - name: Run integration tests
         run: |
-          # Example of a quick test to check if the app is running; replace with your endpoint
-          curl --fail http://localhost:8000 || true
-        continue-on-error: true # Continue even if curl fails
+          curl --fail http://localhost:3000/health || true
+        continue-on-error: false
 
       - name: Stop Docker Compose services
         run: |
