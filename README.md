@@ -30,6 +30,7 @@ A highly optimized and efficient FastAPI-based DNS lookup service that provides 
 - Helm chart for easy deployment
 - Grafana & Prometheus
 - Rate Limiter
+- Wait for it
 
 ## **Endpoints**
 
@@ -224,4 +225,3 @@ This project is licensed under the MIT License.
 This `README.md` covers everything you need to start, deploy, and manage the FastAPI application in different environments, while highlighting important features, deployment strategies, and integration points for Kubernetes, Docker, and CI/CD. It serves as a comprehensive guide for anyone who wants to understand or deploy your project.
 ```
 
-# leyline
