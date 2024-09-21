@@ -82,6 +82,13 @@ jobs:
         run: |
           docker-compose down
 
+      - name: Save Docker Image Name
+        id: save_image
+        run: |
+          # Extract the image name from the built service
+          export IMAGE_NAME=$(docker inspect --format='{{.Config.Image}}' leyline-api)
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
   docker-push:
     runs-on: ubuntu-latest
     needs: docker-compose-build-and-test
@@ -98,12 +105,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and push Docker image
+      - name: Tag and Push Docker image
         run: |
-          sudo apt-get update
-          sudo apt-get install docker-compose -y
-          docker-compose -f docker-compose.yml build
-          docker tag myapp_service ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+          docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
-          docker tag myapp_service ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+          docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
