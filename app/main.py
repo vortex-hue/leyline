@@ -51,11 +51,12 @@ async def root():
     }
 
 
-
-#### start ratelimiter on startup
+#### Start ratelimiter on startup
 @app.on_event("startup")
 async def startup():
-    redis = aioredis.from_url("redis://localhost:6379", encoding="utf8", decode_responses=True)
+    # Change 'localhost' to 'redis' to use the Docker Compose service name
+    redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+    redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=True)
     await FastAPILimiter.init(redis)
 
 

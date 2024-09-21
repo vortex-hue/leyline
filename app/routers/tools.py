@@ -1,4 +1,3 @@
-# Import necessary modules
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.services.dns_service import resolve_ipv4
@@ -10,7 +9,6 @@ from fastapi_limiter.depends import RateLimiter
 import aioredis
 
 
-#### Define the API router
 router = APIRouter()
 
 @router.post("/lookup", response_model=QueryLogResponse, dependencies=[Depends(RateLimiter(times=5, seconds=60))])

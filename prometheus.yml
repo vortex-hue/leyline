@@ -1,10 +1,11 @@
-# prometheus.yml
 global:
-  scrape_interval: 15s # Scrape targets every 15 seconds
+  scrape_interval: 15s
 
 scrape_configs:
-  - job_name: "leyline"
-    metrics_path: "/metrics"
-    scrape_interval: 5s
+  - job_name: "leyline-api"
     static_configs:
-      - targets: ["localhost:3000"]
+      - targets: ["leyline-api:3000"]
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
