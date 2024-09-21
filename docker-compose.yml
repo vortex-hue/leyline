@@ -8,8 +8,11 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://leyline_user:password@db:5432/leyline_db
+      - LOG_LEVEL=info # Set log level for the FastAPI application
     depends_on:
       - db
+    command: >
+      bash -c "uvicorn app.main:app --host 0.0.0.0 --port 3000 --log-level ${LOG_LEVEL} --access-log"
 
   db:
     image: postgres:13
