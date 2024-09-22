@@ -105,11 +105,22 @@ jobs:
         with:
           version: v3.7.1
 
-      - name: Set up kubeconfig
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v1
+        with:
+          version: "v1.21.0"
+
+      - name: Update kubeconfig
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          aws eks get-token --cluster-name ${{ secrets.EKS_CLUSTER_NAME }} | kubectl apply -f -
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
 
       - name: Verify Kubernetes connection
         run: kubectl cluster-info
@@ -119,5 +130,3 @@ jobs:
           helm upgrade --install myapp *.tgz \
             --set image.repository=${{ secrets.DOCKERHUB_USERNAME }}/myapp \
             --set image.tag=${{ github.sha }}
-        env:
-          KUBECONFIG: $HOME/.kube/config
