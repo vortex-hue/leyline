@@ -94,20 +94,30 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Download Helm chart artifact
         uses: actions/download-artifact@v3
         with:
           name: helm-chart
+
       - name: Install Helm
         uses: azure/setup-helm@v1
         with:
           version: v3.7.1
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify Kubernetes connection
+        run: kubectl cluster-info
+
       - name: Deploy to Kubernetes
         run: |
-          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
-          export KUBECONFIG=./kubeconfig
           helm upgrade --install myapp *.tgz \
             --set image.repository=${{ secrets.DOCKERHUB_USERNAME }}/myapp \
             --set image.tag=${{ github.sha }}
         env:
-          KUBECONFIG: ./kubeconfig
+          KUBECONFIG: $HOME/.kube/config
