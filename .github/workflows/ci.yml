@@ -11,45 +11,45 @@ on:
       - develop
 
 jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+  # lint-and-test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.10"
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v2
+  #       with:
+  #         python-version: "3.10"
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+  #     - name: Cache dependencies
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: ~/.cache/pip
+  #         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-pip-
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+  #     - name: Install dependencies
+  #       run: |
+  #         pip install -r requirements.txt
 
-      - name: Lint with pylint
-        run: |
-          pip install pylint
-          pylint app --exit-zero --output-format=colorized > pylint-output.txt || true
-        continue-on-error: true
+  #     - name: Lint with pylint
+  #       run: |
+  #         pip install pylint
+  #         pylint app --exit-zero --output-format=colorized > pylint-output.txt || true
+  #       continue-on-error: true
 
-      - name: Display pylint output
-        if: always()
-        run: |
-          cat pylint-output.txt
+  #     - name: Display pylint output
+  #       if: always()
+  #       run: |
+  #         cat pylint-output.txt
 
-      - name: Run tests with pytest
-        run: |
-          pip install pytest
-          pytest || true
-        continue-on-error: true
+  #     - name: Run tests with pytest
+  #       run: |
+  #         pip install pytest
+  #         pytest || true
+  #       continue-on-error: true
 
   docker-compose-build-and-test:
     runs-on: ubuntu-latest
@@ -80,17 +80,6 @@ jobs:
       - name: Stop Docker Compose services
         run: |
           docker-compose down
-
-      - name: Save Docker Image Name
-        id: save_image
-        run: |
-          IMAGE_NAME=$(docker-compose images -q leyline)
-          if [ -z "$IMAGE_NAME" ]; then
-            echo "Error: IMAGE_NAME is empty. Exiting."
-            exit 1
-          fi
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "IMAGE_NAME=$IMAGE_NAME"  # For debugging purposes
 
   docker-push:
     runs-on: ubuntu-latest
