@@ -1,8 +1,9 @@
 version: "3.8"
 
 services:
-  fastapi:
+  leyline_api:
     build: .
+    image: leyline-api
     container_name: leyline-api
     ports:
       - "3000:3000"
