@@ -72,10 +72,12 @@ jobs:
           sleep 20  # Wait for services to initialize
           docker-compose ps  # Check running containers for debugging purposes
 
-      - name: Run integration tests
+      - name: Capture Image Name
+        id: capture-image-name
         run: |
-          curl --fail http://localhost:3000/health || true
-        continue-on-error: true
+          IMAGE_NAME=$(docker-compose images -q leyline)
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$IMAGE_NAME"
 
       - name: Stop Docker Compose services
         run: |
@@ -99,12 +101,17 @@ jobs:
 
       - name: Tag and Push Docker image
         run: |
-          docker tag ${{ secrets.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+          if [ -z "$IMAGE_NAME" ]; then
+            echo "Error: IMAGE_NAME is not set."
+            exit 1
+          fi
+          echo "Using IMAGE_NAME: $IMAGE_NAME"
+          docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
-          docker tag ${{ secrets.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+          docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
         env:
-          IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
 
   helm-package:
     runs-on: ubuntu-latest
