@@ -86,8 +86,9 @@ jobs:
         id: save_image
         run: |
           # Extract the image name from the built service
-          export IMAGE_NAME=$(docker inspect --format='{{.Config.Image}}' leyline-api)
+          IMAGE_NAME=$(docker inspect --format='{{.Config.Image}}' leyline-api)
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$IMAGE_NAME"  # For debugging purposes
 
   docker-push:
     runs-on: ubuntu-latest
@@ -107,7 +108,10 @@ jobs:
 
       - name: Tag and Push Docker image
         run: |
+          echo "Using IMAGE_NAME: $IMAGE_NAME"
           docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
