@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  leyline_api:
+  leyline:
     build: .
     image: leyline-api
     container_name: leyline-api

@@ -84,8 +84,7 @@ jobs:
       - name: Save Docker Image Name
         id: save_image
         run: |
-          # Use the correct service name as defined in docker-compose.yml (e.g., 'fastapi')
-          IMAGE_NAME=$(docker-compose images -q fastapi)
+          IMAGE_NAME=$(docker-compose images -q leyline)
           if [ -z "$IMAGE_NAME" ]; then
             echo "Error: IMAGE_NAME is empty. Exiting."
             exit 1
