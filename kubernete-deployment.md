@@ -24,7 +24,7 @@ Before you can deploy the application to your Kubernetes cluster, make sure you 
    - Docker Hub password or access token
 
 5. **Access to Your Docker Image**
-   Ensure that your Docker image is available in Docker Hub. The image should have been pushed using your CI/CD pipeline and should be versioned based on the Git commit SHA or tagged as latest.
+   Ensure that your Docker image is available in Docker Hub. The image should have been pushed using the CI/CD pipeline and should be versioned based on the Git commit SHA or tagged as latest.
 
 6. **Helm Chart**
    Ensure your Helm chart is available in the repository, typically located in the `helm-chart` directory.
