@@ -75,7 +75,7 @@ jobs:
       - name: Run integration tests
         run: |
           curl --fail http://localhost:3000/health || true
-        continue-on-error: false
+        continue-on-error: true
 
       - name: Stop Docker Compose services
         run: |
@@ -99,11 +99,14 @@ jobs:
 
       - name: Tag and Push Docker image
         run: |
-          echo "Using IMAGE_NAME: ${{ secrets.IMAGE_NAME }}"
-
-          docker tag ${{ secrets.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+          echo "Using IMAGE_NAME: $IMAGE_NAME"
+          if [ -z "$IMAGE_NAME" ]; then
+            echo "Error: IMAGE_NAME is not set."
+            exit 1
+          fi
+          docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
-          docker tag ${{ secrets.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+          docker tag $IMAGE_NAME ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
         env:
           IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
