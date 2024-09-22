@@ -1,0 +1,27 @@
+# Docker image settings
+image:
+  repository: vortexhue/leyline-api # Replace with your Docker Hub repo
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Application environment variables
+env:
+  DATABASE_URL: "postgresql://leyline_user:password@db:5432/leyline_db"
+  REDIS_URL: "redis://redis:6379"
+
+# Kubernetes service settings
+service:
+  type: ClusterIP
+  port: 3000
+
+# Ingress settings (optional)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: myapp.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

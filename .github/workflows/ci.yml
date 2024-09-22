@@ -110,14 +110,14 @@ jobs:
 
       - name: Tag and Push Docker image
         run: |
-          echo "Using IMAGE_NAME: ${{ env.IMAGE_NAME }}"
+          echo "Using IMAGE_NAME: ${{ secrets.IMAGE_NAME }}"
 
-          docker tag ${{ env.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+          docker tag ${{ secrets.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
-          docker tag ${{ env.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+          docker tag ${{ secrets.IMAGE_NAME }} ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
         env:
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
 
   helm-package:
     runs-on: ubuntu-latest
