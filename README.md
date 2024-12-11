@@ -1,6 +1,6 @@
 # LeyLine DNS Service
 
-A highly optimized and efficient FastAPI-based DNS lookup service that provides several endpoints for domain resolution, IP validation, query history, and health checks. This service is designed with scalability, security, and Kubernetes readiness in mind, making it suitable for production environments.
+A highly optimized and efficient FastAPI-based DNS lookup service that provides several endpoints for domain resolution, IP validation, query history, and health checks. This service is designed with scalability, security, and Kubernetes readiness in mind, making it suitable for production environments..
 
 ## **Table of Contents**
 
