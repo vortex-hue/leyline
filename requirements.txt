@@ -23,3 +23,9 @@ uvicorn==0.18.3
 uvloop==0.20.0
 watchfiles==0.24.0
 websockets==13.0.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2

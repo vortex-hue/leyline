@@ -8,6 +8,7 @@ from app.services.dns_service import resolve_ipv4  # Local application imports
 from app.database import get_db
 from app.models import QueryLog
 from app.schemas import QueryLogResponse
+from app.security import check_rate_limit_dependency, require_scope, APIKeyData
 
 router = APIRouter()
 
@@ -15,9 +16,13 @@ router = APIRouter()
 @router.post(
     "/lookup",
     response_model=QueryLogResponse,
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(check_rate_limit_dependency), Depends(require_scope("dns:write"))],
 )
-async def lookup_domain(domain: str, db: Session = Depends(get_db)):
+async def lookup_domain(
+    domain: str, 
+    db: Session = Depends(get_db),
+    current_user: APIKeyData = Depends(check_rate_limit_dependency)
+):
     """Resolve IPv4 addresses for the given domain and log the query."""
     ipv4_addresses = resolve_ipv4(domain)
     if not ipv4_addresses:
@@ -31,22 +36,25 @@ async def lookup_domain(domain: str, db: Session = Depends(get_db)):
     return log
 
 
-@router.get("/validate", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def validate_ip(ip: str):
+@router.get("/validate", dependencies=[Depends(check_rate_limit_dependency), Depends(require_scope("dns:read"))])
+async def validate_ip(ip: str, current_user: APIKeyData = Depends(check_rate_limit_dependency)):
     """Validate if the input string is a valid IPv4 address."""
     try:
         ipaddress.IPv4Address(ip)
-        return {"is_valid": True}
+        return {"is_valid": True, "ip": ip}
     except ipaddress.AddressValueError:
-        return {"is_valid": False}
+        return {"is_valid": False, "ip": ip}
 
 
 @router.get(
     "/history",
     response_model=list[QueryLogResponse],
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(check_rate_limit_dependency), Depends(require_scope("dns:read"))],
 )
-async def get_history(db: Session = Depends(get_db)):
+async def get_history(
+    db: Session = Depends(get_db),
+    current_user: APIKeyData = Depends(check_rate_limit_dependency)
+):
     """Retrieve the latest 20 saved query logs."""
     logs = db.query(QueryLog).order_by(QueryLog.timestamp.desc()).limit(20).all()
     return logs
