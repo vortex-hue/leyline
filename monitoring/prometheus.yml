@@ -1,0 +1,78 @@
+# Prometheus Configuration for LeyLine DNS Service
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'leyline-dns-service'
+    environment: 'production'
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # LeyLine DNS Service
+  - job_name: 'leyline-dns-service'
+    static_configs:
+      - targets: ['leyline-api:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http
+    params:
+      api_key: ['leyline-api-key-2024']
+    basic_auth:
+      username: 'prometheus'
+      password: 'monitoring-password'
+
+  # ECS Container Insights
+  - job_name: 'ecs-container-insights'
+    ec2_sd_configs:
+      - region: us-west-2
+        port: 9106
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: 'leyline.*'
+        action: keep
+
+  # Node Exporter (if running on EC2)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # PostgreSQL Exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # ALB Target Group
+  - job_name: 'alb-target-group'
+    static_configs:
+      - targets: ['alb-target-group:9100']
+
+  # Kong API Gateway
+  - job_name: 'kong'
+    static_configs:
+      - targets: ['kong:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Application Load Balancer (via CloudWatch)
+  - job_name: 'cloudwatch-exporter'
+    static_configs:
+      - targets: ['cloudwatch-exporter:9106']

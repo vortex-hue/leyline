@@ -1,0 +1,104 @@
+# Grafana Alerting Rules for LeyLine DNS Service
+
+groups:
+  - name: leyline-dns-service
+    rules:
+      - alert: ServiceDown
+        expr: up{job="leyline-dns-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: leyline-dns
+        annotations:
+          summary: "LeyLine DNS Service is down"
+          description: "The LeyLine DNS Service has been down for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: rate(request_count{http_status=~"5.."}[5m]) / rate(request_count[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for more than 2 minutes."
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(request_latency_seconds_bucket[5m])) > 2
+        for: 3m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is above 2 seconds for more than 3 minutes."
+
+      - alert: DatabaseConnectionHigh
+        expr: pg_stat_activity_count > 80
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "High database connection count"
+          description: "Database connection count is above 80 for more than 2 minutes."
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is above 90% for more than 2 minutes."
+
+      - alert: RateLimitExceeded
+        expr: increase(rate_limit_exceeded_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "Rate limit exceeded frequently"
+          description: "Rate limit exceeded more than 10 times in the last 5 minutes."
+
+      - alert: SecurityEventDetected
+        expr: increase(security_events_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: leyline-dns
+        annotations:
+          summary: "Security events detected"
+          description: "More than 5 security events detected in the last 5 minutes."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is below 10% for more than 2 minutes."
+
+      - alert: MemoryUsageHigh
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 90% for more than 2 minutes."
+
+      - alert: CPUUsageHigh
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 3m
+        labels:
+          severity: warning
+          service: leyline-dns
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for more than 3 minutes."

@@ -1,0 +1,321 @@
+# LeyLine DNS Service - AWS Infrastructure
+# This Terraform configuration deploys a production-ready infrastructure
+# for the LeyLine DNS Service on AWS
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  
+  # Uncomment for remote state management
+  # backend "s3" {
+  #   bucket = "leyline-terraform-state"
+  #   key    = "infrastructure/terraform.tfstate"
+  #   region = "us-west-2"
+  # }
+}
+
+provider "aws" {
+  region = var.aws_region
+  
+  default_tags {
+    tags = {
+      Project     = "LeyLine-DNS-Service"
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+      Owner       = "DevOps-Team"
+    }
+  }
+}
+
+# Data sources
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+data "aws_caller_identity" "current" {}
+
+# Local values
+locals {
+  name_prefix = "${var.project_name}-${var.environment}"
+  common_tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+  
+  # VPC Configuration
+  vpc_cidr = "10.0.0.0/16"
+  azs      = slice(data.aws_availability_zones.available.names, 0, 3)
+  
+  # ECS Configuration
+  container_port = 3000
+  container_name = "leyline-api"
+  
+  # RDS Configuration
+  db_name     = "leyline_db"
+  db_username = "leyline_user"
+  
+  # Redis Configuration
+  redis_node_type = "cache.t3.micro"
+}
+
+# VPC Module
+module "vpc" {
+  source = "./modules/vpc"
+  
+  name_prefix = local.name_prefix
+  vpc_cidr    = local.vpc_cidr
+  azs         = local.azs
+  
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  
+  enable_nat_gateway = true
+  enable_vpn_gateway = false
+  
+  tags = local.common_tags
+}
+
+# Security Groups
+module "security_groups" {
+  source = "./modules/security-groups"
+  
+  name_prefix = local.name_prefix
+  vpc_id      = module.vpc.vpc_id
+  
+  # ALB Security Group
+  alb_ingress_cidrs = var.alb_ingress_cidrs
+  
+  # ECS Security Group
+  ecs_ingress_ports = [local.container_port]
+  
+  # RDS Security Group
+  rds_ingress_cidrs = [local.vpc_cidr]
+  
+  # Redis Security Group
+  redis_ingress_cidrs = [local.vpc_cidr]
+  
+  tags = local.common_tags
+}
+
+# Application Load Balancer
+module "alb" {
+  source = "./modules/alb"
+  
+  name_prefix = local.name_prefix
+  vpc_id      = module.vpc.vpc_id
+  subnets     = module.vpc.public_subnet_ids
+  
+  security_groups = [module.security_groups.alb_security_group_id]
+  
+  # Health check configuration
+  health_check_path = "/health"
+  health_check_port = local.container_port
+  
+  # SSL Configuration
+  certificate_arn = var.certificate_arn
+  
+  tags = local.common_tags
+}
+
+# ECS Cluster
+module "ecs_cluster" {
+  source = "./modules/ecs-cluster"
+  
+  name_prefix = local.name_prefix
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+  
+  tags = local.common_tags
+}
+
+# ECS Service
+module "ecs_service" {
+  source = "./modules/ecs-service"
+  
+  name_prefix = local.name_prefix
+  cluster_id  = module.ecs_cluster.cluster_id
+  
+  # Task Definition
+  task_family = "${local.name_prefix}-task"
+  cpu         = var.ecs_cpu
+  memory      = var.ecs_memory
+  
+  # Container Configuration
+  container_name = local.container_name
+  container_port = local.container_port
+  image_uri      = var.container_image_uri
+  
+  # Network Configuration
+  subnets         = module.vpc.private_subnet_ids
+  security_groups = [module.security_groups.ecs_security_group_id]
+  
+  # Load Balancer Configuration
+  target_group_arn = module.alb.target_group_arn
+  
+  # Environment Variables
+  environment_variables = {
+    DATABASE_URL = "postgresql://${local.db_username}:${random_password.db_password.result}@${module.rds.endpoint}/${local.db_name}"
+    REDIS_URL    = "redis://${module.redis.endpoint}:6379"
+    ENVIRONMENT  = var.environment
+    JWT_SECRET_KEY = random_password.jwt_secret.result
+  }
+  
+  # Secrets
+  secrets = {
+    DATABASE_PASSWORD = aws_secretsmanager_secret.db_password.arn
+    JWT_SECRET        = aws_secretsmanager_secret.jwt_secret.arn
+  }
+  
+  # Auto Scaling
+  min_capacity     = var.ecs_min_capacity
+  max_capacity     = var.ecs_max_capacity
+  target_cpu_util  = var.ecs_target_cpu_util
+  target_mem_util  = var.ecs_target_mem_util
+  
+  tags = local.common_tags
+}
+
+# RDS Database
+module "rds" {
+  source = "./modules/rds"
+  
+  name_prefix = local.name_prefix
+  vpc_id      = module.vpc.vpc_id
+  subnets     = module.vpc.private_subnet_ids
+  
+  security_groups = [module.security_groups.rds_security_group_id]
+  
+  # Database Configuration
+  db_name     = local.db_name
+  db_username = local.db_username
+  db_password = random_password.db_password.result
+  
+  # Instance Configuration
+  instance_class    = var.rds_instance_class
+  allocated_storage = var.rds_allocated_storage
+  max_allocated_storage = var.rds_max_allocated_storage
+  
+  # Backup Configuration
+  backup_retention_period = var.rds_backup_retention_period
+  backup_window          = var.rds_backup_window
+  maintenance_window     = var.rds_maintenance_window
+  
+  # Monitoring
+  monitoring_interval = var.rds_monitoring_interval
+  performance_insights_enabled = var.rds_performance_insights_enabled
+  
+  tags = local.common_tags
+}
+
+# ElastiCache Redis
+module "redis" {
+  source = "./modules/redis"
+  
+  name_prefix = local.name_prefix
+  vpc_id      = module.vpc.vpc_id
+  subnets     = module.vpc.private_subnet_ids
+  
+  security_groups = [module.security_groups.redis_security_group_id]
+  
+  # Redis Configuration
+  node_type = local.redis_node_type
+  num_cache_nodes = var.redis_num_cache_nodes
+  
+  # Parameter Group
+  parameter_group_name = var.redis_parameter_group_name
+  
+  tags = local.common_tags
+}
+
+# CloudWatch Log Groups
+resource "aws_cloudwatch_log_group" "ecs_logs" {
+  name              = "/ecs/${local.name_prefix}"
+  retention_in_days = var.log_retention_days
+  
+  tags = local.common_tags
+}
+
+# Secrets Manager
+resource "random_password" "db_password" {
+  length  = 32
+  special = true
+}
+
+resource "random_password" "jwt_secret" {
+  length  = 64
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db_password" {
+  name                    = "${local.name_prefix}-db-password"
+  description             = "Database password for LeyLine DNS Service"
+  recovery_window_in_days = 7
+  
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "db_password" {
+  secret_id     = aws_secretsmanager_secret.db_password.id
+  secret_string = random_password.db_password.result
+}
+
+resource "aws_secretsmanager_secret" "jwt_secret" {
+  name                    = "${local.name_prefix}-jwt-secret"
+  description             = "JWT secret key for LeyLine DNS Service"
+  recovery_window_in_days = 7
+  
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "jwt_secret" {
+  secret_id     = aws_secretsmanager_secret.jwt_secret.id
+  secret_string = random_password.jwt_secret.result
+}
+
+# Route 53 (Optional)
+resource "aws_route53_zone" "main" {
+  count = var.create_route53_zone ? 1 : 0
+  name  = var.domain_name
+  
+  tags = local.common_tags
+}
+
+resource "aws_route53_record" "api" {
+  count   = var.create_route53_zone ? 1 : 0
+  zone_id = aws_route53_zone.main[0].zone_id
+  name    = "api.${var.domain_name}"
+  type    = "A"
+  
+  alias {
+    name                   = module.alb.dns_name
+    zone_id                = module.alb.zone_id
+    evaluate_target_health = true
+  }
+}
+
+# CloudWatch Alarms
+module "cloudwatch_alarms" {
+  source = "./modules/cloudwatch-alarms"
+  
+  name_prefix = local.name_prefix
+  
+  # ECS Alarms
+  ecs_cluster_name = module.ecs_cluster.cluster_name
+  ecs_service_name = module.ecs_service.service_name
+  
+  # RDS Alarms
+  rds_instance_id = module.rds.instance_id
+  
+  # ALB Alarms
+  alb_arn_suffix = module.alb.arn_suffix
+  
+  # Notification Configuration
+  sns_topic_arn = var.sns_topic_arn
+  
+  tags = local.common_tags
+}

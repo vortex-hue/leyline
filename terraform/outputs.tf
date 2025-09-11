@@ -1,0 +1,227 @@
+# LeyLine DNS Service - Terraform Outputs
+
+# VPC Outputs
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.vpc.vpc_id
+}
+
+output "vpc_cidr_block" {
+  description = "CIDR block of the VPC"
+  value       = module.vpc.vpc_cidr_block
+}
+
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.vpc.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = module.vpc.private_subnet_ids
+}
+
+# ALB Outputs
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.alb.dns_name
+}
+
+output "alb_zone_id" {
+  description = "Zone ID of the Application Load Balancer"
+  value       = module.alb.zone_id
+}
+
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = module.alb.arn
+}
+
+output "alb_arn_suffix" {
+  description = "ARN suffix of the Application Load Balancer"
+  value       = module.alb.arn_suffix
+}
+
+# ECS Outputs
+output "ecs_cluster_id" {
+  description = "ID of the ECS cluster"
+  value       = module.ecs_cluster.cluster_id
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = module.ecs_cluster.cluster_name
+}
+
+output "ecs_cluster_arn" {
+  description = "ARN of the ECS cluster"
+  value       = module.ecs_cluster.cluster_arn
+}
+
+output "ecs_service_id" {
+  description = "ID of the ECS service"
+  value       = module.ecs_service.service_id
+}
+
+output "ecs_service_name" {
+  description = "Name of the ECS service"
+  value       = module.ecs_service.service_name
+}
+
+output "ecs_task_definition_arn" {
+  description = "ARN of the ECS task definition"
+  value       = module.ecs_service.task_definition_arn
+}
+
+# RDS Outputs
+output "rds_endpoint" {
+  description = "RDS instance endpoint"
+  value       = module.rds.endpoint
+  sensitive   = true
+}
+
+output "rds_port" {
+  description = "RDS instance port"
+  value       = module.rds.port
+}
+
+output "rds_db_name" {
+  description = "RDS database name"
+  value       = module.rds.db_name
+}
+
+output "rds_instance_id" {
+  description = "RDS instance ID"
+  value       = module.rds.instance_id
+}
+
+# Redis Outputs
+output "redis_endpoint" {
+  description = "Redis cluster endpoint"
+  value       = module.redis.endpoint
+  sensitive   = true
+}
+
+output "redis_port" {
+  description = "Redis cluster port"
+  value       = module.redis.port
+}
+
+output "redis_cluster_id" {
+  description = "Redis cluster ID"
+  value       = module.redis.cluster_id
+}
+
+# Security Group Outputs
+output "alb_security_group_id" {
+  description = "ID of the ALB security group"
+  value       = module.security_groups.alb_security_group_id
+}
+
+output "ecs_security_group_id" {
+  description = "ID of the ECS security group"
+  value       = module.security_groups.ecs_security_group_id
+}
+
+output "rds_security_group_id" {
+  description = "ID of the RDS security group"
+  value       = module.security_groups.rds_security_group_id
+}
+
+output "redis_security_group_id" {
+  description = "ID of the Redis security group"
+  value       = module.security_groups.redis_security_group_id
+}
+
+# Secrets Manager Outputs
+output "db_password_secret_arn" {
+  description = "ARN of the database password secret"
+  value       = aws_secretsmanager_secret.db_password.arn
+}
+
+output "jwt_secret_arn" {
+  description = "ARN of the JWT secret"
+  value       = aws_secretsmanager_secret.jwt_secret.arn
+}
+
+# CloudWatch Outputs
+output "ecs_log_group_name" {
+  description = "Name of the ECS CloudWatch log group"
+  value       = aws_cloudwatch_log_group.ecs_logs.name
+}
+
+output "ecs_log_group_arn" {
+  description = "ARN of the ECS CloudWatch log group"
+  value       = aws_cloudwatch_log_group.ecs_logs.arn
+}
+
+# Route 53 Outputs
+output "route53_zone_id" {
+  description = "ID of the Route 53 hosted zone"
+  value       = var.create_route53_zone ? aws_route53_zone.main[0].zone_id : null
+}
+
+output "api_dns_name" {
+  description = "DNS name of the API"
+  value       = var.create_route53_zone ? aws_route53_record.api[0].name : null
+}
+
+# Service URLs
+output "api_url" {
+  description = "URL of the API service"
+  value       = "https://${module.alb.dns_name}"
+}
+
+output "api_url_http" {
+  description = "HTTP URL of the API service"
+  value       = "http://${module.alb.dns_name}"
+}
+
+# Health Check URLs
+output "health_check_url" {
+  description = "Health check URL"
+  value       = "https://${module.alb.dns_name}/health"
+}
+
+output "readiness_check_url" {
+  description = "Readiness check URL"
+  value       = "https://${module.alb.dns_name}/ready"
+}
+
+output "liveness_check_url" {
+  description = "Liveness check URL"
+  value       = "https://${module.alb.dns_name}/live"
+}
+
+# Monitoring URLs
+output "metrics_url" {
+  description = "Metrics URL (requires API key)"
+  value       = "https://${module.alb.dns_name}/metrics"
+}
+
+# Cost Information
+output "estimated_monthly_cost" {
+  description = "Estimated monthly cost breakdown"
+  value = {
+    ecs_fargate = "~$15-30 (depending on usage)"
+    rds_db_t3_micro = "~$12-15"
+    redis_cache_t3_micro = "~$8-12"
+    alb = "~$16-20"
+    cloudwatch_logs = "~$5-10"
+    total_estimated = "~$56-87/month"
+  }
+}
+
+# Deployment Information
+output "deployment_info" {
+  description = "Deployment information and next steps"
+  value = {
+    service_url = "https://${module.alb.dns_name}"
+    health_check = "https://${module.alb.dns_name}/health"
+    api_documentation = "https://${module.alb.dns_name}/docs"
+    monitoring = "Check CloudWatch for logs and metrics"
+    scaling = "ECS service will auto-scale based on CPU/memory usage"
+    backup = "RDS automated backups enabled for ${var.rds_backup_retention_period} days"
+    security = "All secrets stored in AWS Secrets Manager"
+  }
+}

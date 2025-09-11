@@ -1,0 +1,50 @@
+# LeyLine DNS Service - Terraform Variables Example
+# Copy this file to terraform.tfvars and customize the values
+
+# General Configuration
+project_name = "leyline"
+environment  = "dev"
+aws_region   = "us-west-2"
+
+# VPC Configuration
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+alb_ingress_cidrs    = ["0.0.0.0/0"]  # Restrict this in production
+
+# ECS Configuration
+ecs_cpu              = 512
+ecs_memory           = 1024
+ecs_min_capacity     = 1
+ecs_max_capacity     = 10
+ecs_target_cpu_util  = 70
+ecs_target_mem_util  = 80
+container_image_uri  = "your-account.dkr.ecr.us-west-2.amazonaws.com/leyline-api:latest"
+
+# RDS Configuration
+rds_instance_class                = "db.t3.micro"
+rds_allocated_storage             = 20
+rds_max_allocated_storage         = 100
+rds_backup_retention_period       = 7
+rds_backup_window                 = "03:00-04:00"
+rds_maintenance_window            = "sun:04:00-sun:05:00"
+rds_monitoring_interval           = 60
+rds_performance_insights_enabled  = true
+
+# Redis Configuration
+redis_num_cache_nodes      = 1
+redis_parameter_group_name = "default.redis7"
+
+# Monitoring Configuration
+log_retention_days = 30
+sns_topic_arn      = ""  # Optional: SNS topic for notifications
+
+# SSL Configuration
+certificate_arn = ""  # Optional: ACM certificate ARN for HTTPS
+
+# DNS Configuration
+domain_name           = ""  # Optional: Domain name for the service
+create_route53_zone   = false
+
+# Cost Optimization
+enable_spot_instances = true
+enable_graviton       = true
