@@ -49,7 +49,21 @@ app = FastAPI(
     version=settings.version,
     lifespan=lifespan,
     docs_url="/docs" if settings.environment == "development" else None,
-    redoc_url="/redoc" if settings.environment == "development" else None
+    redoc_url="/redoc" if settings.environment == "development" else None,
+    openapi_tags=[
+        {
+            "name": "health",
+            "description": "Health check endpoints (no authentication required)",
+        },
+        {
+            "name": "dns",
+            "description": "DNS lookup and validation operations (API key required)",
+        },
+        {
+            "name": "metrics",
+            "description": "Prometheus metrics endpoint (API key required)",
+        },
+    ]
 )
 
 # Add security middleware
@@ -67,9 +81,78 @@ app.add_middleware(
 )
 
 # Include the routers
-app.include_router(tools.router, prefix="/v1/tools")
-app.include_router(health.router)
-app.include_router(metrics.router)
+app.include_router(tools.router, prefix="/v1/tools", tags=["dns"])
+app.include_router(health.router, tags=["health"])
+app.include_router(metrics.router, tags=["metrics"])
+
+# Add API key authentication to OpenAPI schema
+def get_openapi_schema():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    from fastapi.openapi.utils import get_openapi
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description="""
+        # LeyLine DNS Service API
+        
+        A production-ready DNS lookup service with comprehensive security and monitoring.
+        
+        ## Authentication
+        
+        Most endpoints require an API key in the `X-API-Key` header. Health endpoints (`/health`, `/ready`, `/live`) do not require authentication.
+        
+        ### Available API Keys:
+        - `leyline-api-key-2024` - Standard access (dns:read, dns:write, metrics:read)
+        - `admin-key-2024` - Admin access (all permissions)
+        - `test-key-2024` - Test access (limited permissions)
+        
+        ## Rate Limiting
+        
+        - Health endpoints: 100 requests/minute
+        - API endpoints: 20 requests/minute
+        - Metrics endpoint: 10 requests/minute
+        
+        ## Examples
+        
+        ```bash
+        # Health check (no auth)
+        curl http://localhost:8000/health
+        
+        # API call with authentication
+        curl -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/
+        
+        # DNS lookup
+        curl -X POST -H "X-API-Key: leyline-api-key-2024" \\
+          "http://localhost:8000/v1/tools/lookup?domain=example.com"
+        ```
+        """,
+        routes=app.routes,
+    )
+    
+    # Add security scheme
+    openapi_schema["components"]["securitySchemes"] = {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+            "description": "API key for authentication. Get your key from the Kong Admin API at http://localhost:8001/consumers"
+        }
+    }
+    
+    # Add security requirements to protected endpoints
+    for path in openapi_schema["paths"]:
+        if path not in ["/health", "/ready", "/live"]:
+            for method in openapi_schema["paths"][path]:
+                if method in ["get", "post", "put", "delete"]:
+                    openapi_schema["paths"][path][method]["security"] = [{"ApiKeyAuth": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = get_openapi_schema
 
 
 # Middleware to collect metrics
