@@ -5,6 +5,25 @@ __pycache__
 .DS_Store
 .idea
 .vscode
-.pytest_cache
-.pytest_cache
- 
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+.terraform/
+.terraform.lock.hcl
+terraform.tfplan
+plan.txt
+
+# Secrets and credentials
+secrets/
+*.pem
+*.key
+*.crt
+.aws/
+.secrets
+
+# Local development
+.envrc
+docker-compose.override.yml
