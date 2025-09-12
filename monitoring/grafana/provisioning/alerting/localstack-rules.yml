@@ -1,0 +1,114 @@
+# Grafana Alerting Rules for LocalStack Demo Environment
+
+groups:
+  - name: localstack-demo-alerts
+    rules:
+      - alert: LocalStackServiceDown
+        expr: up{job="leyline-dns-service-localstack"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "LeyLine DNS Service is down in LocalStack"
+          description: "The LeyLine DNS Service has been down for more than 30 seconds in LocalStack demo environment."
+
+      - alert: LocalStackHighErrorRate
+        expr: rate(request_count{http_status=~"5..", job="leyline-dns-service-localstack"}[2m]) / rate(request_count{job="leyline-dns-service-localstack"}[2m]) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "High error rate detected in LocalStack demo"
+          description: "Error rate is above 10% for more than 1 minute in LocalStack environment."
+
+      - alert: LocalStackHighResponseTime
+        expr: histogram_quantile(0.95, rate(request_latency_seconds_bucket{job="leyline-dns-service-localstack"}[2m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "High response time detected in LocalStack demo"
+          description: "95th percentile response time is above 1 second for more than 2 minutes in LocalStack environment."
+
+      - alert: LocalStackRateLimitExceeded
+        expr: increase(rate_limit_exceeded_total{job="leyline-dns-service-localstack"}[2m]) > 5
+        for: 30s
+        labels:
+          severity: warning
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "Rate limit frequently exceeded in LocalStack demo"
+          description: "Rate limit exceeded more than 5 times in the last 2 minutes in LocalStack environment."
+
+      - alert: LocalStackAPIKeyErrors
+        expr: increase(security_events_total{event_type="invalid_api_key", job="leyline-dns-service-localstack"}[2m]) > 3
+        for: 30s
+        labels:
+          severity: warning
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "Multiple invalid API key attempts in LocalStack demo"
+          description: "More than 3 invalid API key attempts detected in the last 2 minutes in LocalStack environment."
+
+      - alert: LocalStackContainerRestart
+        expr: increase(container_last_seen{name=~".*leyline.*"}[5m]) > 0
+        for: 0s
+        labels:
+          severity: info
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "Container restarted in LocalStack demo"
+          description: "A container related to LeyLine service has restarted in LocalStack environment."
+
+      - alert: LocalStackMemoryUsage
+        expr: (container_memory_usage_bytes{name=~".*leyline.*"} / container_spec_memory_limit_bytes{name=~".*leyline.*"}) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "High memory usage in LocalStack demo"
+          description: "Container memory usage is above 80% for more than 2 minutes in LocalStack environment."
+
+      - alert: LocalStackDNSQueryFailures
+        expr: increase(dns_queries_total{status="error", job="leyline-dns-service-localstack"}[2m]) > 2
+        for: 1m
+        labels:
+          severity: warning
+          service: leyline-dns
+          environment: localstack
+        annotations:
+          summary: "DNS query failures in LocalStack demo"
+          description: "More than 2 DNS query failures detected in the last 2 minutes in LocalStack environment."
+
+      - alert: LocalStackPrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: monitoring
+          environment: localstack
+        annotations:
+          summary: "Prometheus is down in LocalStack demo"
+          description: "Prometheus monitoring service is down in LocalStack environment."
+
+      - alert: LocalStackGrafanaDown
+        expr: up{job="grafana"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: monitoring
+          environment: localstack
+        annotations:
+          summary: "Grafana is down in LocalStack demo"
+          description: "Grafana dashboard service is down in LocalStack environment."

@@ -1,0 +1,92 @@
+digraph {
+	compound = "true"
+	newrank = "true"
+	subgraph "root" {
+		"[root] aws_cloudwatch_log_group.app_logs (expand)" [label = "aws_cloudwatch_log_group.app_logs", shape = "box"]
+		"[root] aws_iam_instance_profile.app_profile (expand)" [label = "aws_iam_instance_profile.app_profile", shape = "box"]
+		"[root] aws_iam_policy.s3_access (expand)" [label = "aws_iam_policy.s3_access", shape = "box"]
+		"[root] aws_iam_role.app_role (expand)" [label = "aws_iam_role.app_role", shape = "box"]
+		"[root] aws_iam_role_policy_attachment.s3_access (expand)" [label = "aws_iam_role_policy_attachment.s3_access", shape = "box"]
+		"[root] aws_internet_gateway.demo (expand)" [label = "aws_internet_gateway.demo", shape = "box"]
+		"[root] aws_route_table.public (expand)" [label = "aws_route_table.public", shape = "box"]
+		"[root] aws_route_table_association.public (expand)" [label = "aws_route_table_association.public", shape = "box"]
+		"[root] aws_s3_bucket.app_data (expand)" [label = "aws_s3_bucket.app_data", shape = "box"]
+		"[root] aws_s3_bucket.static_assets (expand)" [label = "aws_s3_bucket.static_assets", shape = "box"]
+		"[root] aws_security_group.web (expand)" [label = "aws_security_group.web", shape = "box"]
+		"[root] aws_subnet.private (expand)" [label = "aws_subnet.private", shape = "box"]
+		"[root] aws_subnet.public (expand)" [label = "aws_subnet.public", shape = "box"]
+		"[root] aws_vpc.demo (expand)" [label = "aws_vpc.demo", shape = "box"]
+		"[root] data.aws_availability_zones.available (expand)" [label = "data.aws_availability_zones.available", shape = "box"]
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"]" [label = "provider[\"registry.terraform.io/hashicorp/aws\"]", shape = "diamond"]
+		"[root] var.aws_region" [label = "var.aws_region", shape = "note"]
+		"[root] var.container_image_uri" [label = "var.container_image_uri", shape = "note"]
+		"[root] var.ecs_cpu" [label = "var.ecs_cpu", shape = "note"]
+		"[root] var.ecs_memory" [label = "var.ecs_memory", shape = "note"]
+		"[root] var.environment" [label = "var.environment", shape = "note"]
+		"[root] var.log_retention_days" [label = "var.log_retention_days", shape = "note"]
+		"[root] var.project_name" [label = "var.project_name", shape = "note"]
+		"[root] aws_cloudwatch_log_group.app_logs (expand)" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"]"
+		"[root] aws_cloudwatch_log_group.app_logs (expand)" -> "[root] var.log_retention_days"
+		"[root] aws_cloudwatch_log_group.app_logs (expand)" -> "[root] var.project_name"
+		"[root] aws_iam_instance_profile.app_profile (expand)" -> "[root] aws_iam_role.app_role (expand)"
+		"[root] aws_iam_policy.s3_access (expand)" -> "[root] aws_s3_bucket.app_data (expand)"
+		"[root] aws_iam_policy.s3_access (expand)" -> "[root] aws_s3_bucket.static_assets (expand)"
+		"[root] aws_iam_role.app_role (expand)" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"]"
+		"[root] aws_iam_role.app_role (expand)" -> "[root] var.project_name"
+		"[root] aws_iam_role_policy_attachment.s3_access (expand)" -> "[root] aws_iam_policy.s3_access (expand)"
+		"[root] aws_iam_role_policy_attachment.s3_access (expand)" -> "[root] aws_iam_role.app_role (expand)"
+		"[root] aws_internet_gateway.demo (expand)" -> "[root] aws_vpc.demo (expand)"
+		"[root] aws_route_table.public (expand)" -> "[root] aws_internet_gateway.demo (expand)"
+		"[root] aws_route_table_association.public (expand)" -> "[root] aws_route_table.public (expand)"
+		"[root] aws_route_table_association.public (expand)" -> "[root] aws_subnet.public (expand)"
+		"[root] aws_s3_bucket.app_data (expand)" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"]"
+		"[root] aws_s3_bucket.app_data (expand)" -> "[root] var.project_name"
+		"[root] aws_s3_bucket.static_assets (expand)" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"]"
+		"[root] aws_s3_bucket.static_assets (expand)" -> "[root] var.project_name"
+		"[root] aws_security_group.web (expand)" -> "[root] aws_vpc.demo (expand)"
+		"[root] aws_subnet.private (expand)" -> "[root] aws_vpc.demo (expand)"
+		"[root] aws_subnet.private (expand)" -> "[root] data.aws_availability_zones.available (expand)"
+		"[root] aws_subnet.public (expand)" -> "[root] aws_vpc.demo (expand)"
+		"[root] aws_subnet.public (expand)" -> "[root] data.aws_availability_zones.available (expand)"
+		"[root] aws_vpc.demo (expand)" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"]"
+		"[root] aws_vpc.demo (expand)" -> "[root] var.project_name"
+		"[root] data.aws_availability_zones.available (expand)" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"]"
+		"[root] output.cloudwatch_log_group (expand)" -> "[root] aws_cloudwatch_log_group.app_logs (expand)"
+		"[root] output.iam_role_arn (expand)" -> "[root] aws_iam_role.app_role (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_cloudwatch_log_group.app_logs (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_iam_role.app_role (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_s3_bucket.app_data (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_s3_bucket.static_assets (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_security_group.web (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_subnet.private (expand)"
+		"[root] output.localstack_demo_summary (expand)" -> "[root] aws_subnet.public (expand)"
+		"[root] output.private_subnet_ids (expand)" -> "[root] aws_subnet.private (expand)"
+		"[root] output.public_subnet_ids (expand)" -> "[root] aws_subnet.public (expand)"
+		"[root] output.s3_bucket_app_data (expand)" -> "[root] aws_s3_bucket.app_data (expand)"
+		"[root] output.s3_bucket_static_assets (expand)" -> "[root] aws_s3_bucket.static_assets (expand)"
+		"[root] output.security_group_id (expand)" -> "[root] aws_security_group.web (expand)"
+		"[root] output.vpc_id (expand)" -> "[root] aws_vpc.demo (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)" -> "[root] aws_cloudwatch_log_group.app_logs (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)" -> "[root] aws_iam_instance_profile.app_profile (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)" -> "[root] aws_iam_role_policy_attachment.s3_access (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)" -> "[root] aws_route_table_association.public (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)" -> "[root] aws_security_group.web (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)" -> "[root] aws_subnet.private (expand)"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"]" -> "[root] var.aws_region"
+		"[root] provider[\"registry.terraform.io/hashicorp/aws\"]" -> "[root] var.environment"
+		"[root] root" -> "[root] output.cloudwatch_log_group (expand)"
+		"[root] root" -> "[root] output.iam_role_arn (expand)"
+		"[root] root" -> "[root] output.localstack_demo_summary (expand)"
+		"[root] root" -> "[root] output.private_subnet_ids (expand)"
+		"[root] root" -> "[root] output.public_subnet_ids (expand)"
+		"[root] root" -> "[root] output.s3_bucket_app_data (expand)"
+		"[root] root" -> "[root] output.s3_bucket_static_assets (expand)"
+		"[root] root" -> "[root] output.security_group_id (expand)"
+		"[root] root" -> "[root] output.vpc_id (expand)"
+		"[root] root" -> "[root] provider[\"registry.terraform.io/hashicorp/aws\"] (close)"
+		"[root] root" -> "[root] var.container_image_uri"
+		"[root] root" -> "[root] var.ecs_cpu"
+		"[root] root" -> "[root] var.ecs_memory"
+	}
+}
+

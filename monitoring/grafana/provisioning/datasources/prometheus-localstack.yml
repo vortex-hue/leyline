@@ -1,0 +1,42 @@
+# Grafana Datasource Configuration for LocalStack Demo
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    basicAuth: false
+    isDefault: true
+    version: 1
+    editable: true
+    jsonData:
+      httpMethod: POST
+      prometheusType: Prometheus
+      prometheusVersion: 2.40.0
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      httpHeaderName1: "X-Dashboard-Source"
+    secureJsonData:
+      httpHeaderValue1: "LocalStack-Demo"
+    
+  - name: LocalStack-Prometheus
+    type: prometheus  
+    uid: localstack-prometheus
+    access: proxy
+    url: http://localhost:9090
+    basicAuth: false
+    isDefault: false
+    version: 1
+    editable: true
+    jsonData:
+      httpMethod: POST
+      prometheusType: Prometheus
+      prometheusVersion: 2.40.0
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: 'tempo'
+          url: 'http://localhost:3000/explore?orgId=1&left=["now-1h","now","Tempo",{"query":"${__value.raw}"}]'

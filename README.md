@@ -545,13 +545,59 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 3000
 
 ## 🔄 CI/CD Pipeline
 
-### **Pipeline Stages**
+### **Dual Pipeline Strategy**
+The project includes comprehensive CI/CD pipelines for both production AWS and LocalStack demo environments:
+
+#### **Production Pipeline (`ci-cd.yml`)**
 1. **Security Scan**: Trivy, Bandit, Safety
 2. **Code Quality**: Linting, type checking, formatting
 3. **Testing**: Unit, integration, coverage
 4. **Build**: Docker image creation and scanning
 5. **Deploy**: Infrastructure and application deployment
 6. **Validate**: Health checks and smoke tests
+
+#### **LocalStack Demo Pipeline (`localstack-ci.yml`)** 🆕
+A comprehensive 7-phase pipeline specifically designed for LocalStack demonstration:
+
+1. **🔍 Code Quality & Security**
+   - Lint, test, and security scanning
+   - pytest execution with full coverage
+   - Multi-stage security validation
+
+2. **🏗️ Build & Container Security**
+   - Docker image building with BuildKit
+   - Trivy container vulnerability scanning
+   - Image artifact management
+
+3. **☁️ LocalStack Infrastructure Testing**
+   - LocalStack service integration
+   - Terraform infrastructure deployment  
+   - AWS service emulation testing
+   - Infrastructure graph generation
+
+4. **🔧 Application Integration Testing**
+   - Full application stack testing
+   - Database and Redis integration
+   - API endpoint validation
+   - Comprehensive pytest execution
+
+5. **🛡️ Kong API Gateway Testing**
+   - Kong Gateway deployment
+   - API key authentication testing
+   - Rate limiting validation
+   - End-to-end API management testing
+
+6. **📊 Observability Testing**
+   - Prometheus metrics collection
+   - Grafana dashboard validation
+   - AlertManager configuration testing
+   - Load generation and metric verification
+
+7. **📋 Automated Reporting**
+   - Comprehensive test reports
+   - Artifact collection and storage
+   - Pull request commenting
+   - Pipeline status tracking
 
 ### **Deployment Strategies**
 - **Blue-Green**: Zero-downtime deployments

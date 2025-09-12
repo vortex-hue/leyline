@@ -1,0 +1,702 @@
+name: LocalStack CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  LOCALSTACK_VERSION: "latest"
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # Phase 1: Code Quality & Security
+  lint-and-security:
+    name: Lint, Test & Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+          pip install pylint bandit safety
+
+      - name: Lint with pylint
+        run: |
+          pylint app --exit-zero --output-format=colorized | tee pylint-output.txt
+        continue-on-error: true
+
+      - name: Security scan with Bandit
+        run: |
+          bandit -r app/ -f json -o bandit-report.json || true
+
+      - name: Dependency security check
+        run: |
+          safety check --json --output safety-report.json || true
+
+      - name: Run tests with pytest
+        run: |
+          pytest tests/ -v --tb=short
+        env:
+          # Mock environment for tests
+          DATABASE_URL: "sqlite:///./test.db"
+          REDIS_URL: "redis://localhost:6379"
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+            pylint-output.txt
+
+  # Phase 2: Build and Container Security
+  build-and-scan:
+    name: Build Docker Image & Security Scan
+    runs-on: ubuntu-latest
+    needs: lint-and-security
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: leyline-api
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/leyline-api.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image
+          path: /tmp/leyline-api.tar
+          retention-days: 1
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: /tmp/leyline-api.tar
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Phase 3: LocalStack Infrastructure Testing
+  localstack-deploy:
+    name: LocalStack Infrastructure Deployment
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    
+    services:
+      localstack:
+        image: localstack/localstack:${{ env.LOCALSTACK_VERSION }}
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: ec2,ecs,elbv2,rds,elasticache,s3,iam,secretsmanager,logs,cloudformation,cloudwatch
+          DEBUG: 1
+          DOCKER_HOST: unix:///var/run/docker.sock
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Install AWS CLI and awslocal
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          pip install awscli-local
+
+      - name: Wait for LocalStack to be ready
+        run: |
+          echo "Waiting for LocalStack to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:4566/_localstack/health > /dev/null 2>&1; then
+              echo "LocalStack is ready!"
+              break
+            fi
+            echo "Attempt $i: LocalStack not ready yet, waiting..."
+            sleep 10
+          done
+
+      - name: Verify LocalStack services
+        run: |
+          echo "LocalStack health status:"
+          curl -s http://localhost:4566/_localstack/health | python3 -c "
+          import sys, json
+          health = json.load(sys.stdin)
+          print('LocalStack version:', health.get('version', 'unknown'))
+          print('Available services:')
+          for service, status in health['services'].items():
+              print(f'  {service}: {status}')
+          "
+
+      - name: Initialize Terraform
+        working-directory: terraform
+        run: |
+          terraform init
+          terraform validate
+
+      - name: Plan infrastructure
+        working-directory: terraform
+        run: |
+          terraform plan -out=tfplan -detailed-exitcode
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Apply infrastructure
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve tfplan
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Generate Terraform graph
+        working-directory: terraform
+        run: |
+          terraform graph > terraform-graph.dot
+          # Install graphviz if needed
+          sudo apt-get update && sudo apt-get install -y graphviz
+          dot -Tpng terraform-graph.dot > terraform-graph.png
+
+      - name: Test deployed infrastructure
+        run: |
+          echo "Testing deployed infrastructure..."
+          
+          # Test S3 buckets
+          echo "Testing S3 buckets:"
+          awslocal s3 ls
+          
+          # Test VPC
+          echo "Testing VPC:"
+          awslocal ec2 describe-vpcs --query 'Vpcs[].{VpcId:VpcId,CidrBlock:CidrBlock}' --output table
+          
+          # Test IAM
+          echo "Testing IAM roles:"
+          awslocal iam list-roles --query 'Roles[].RoleName' --output table
+          
+          # Test CloudWatch
+          echo "Testing CloudWatch log groups:"
+          awslocal logs describe-log-groups --query 'logGroups[].logGroupName' --output table
+
+      - name: Upload Terraform artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-artifacts
+          path: |
+            terraform/terraform-graph.png
+            terraform/terraform-graph.dot
+            terraform/tfplan
+
+  # Phase 4: Application Integration Testing
+  app-integration-test:
+    name: Application Integration Testing
+    runs-on: ubuntu-latest
+    needs: [build-and-scan, localstack-deploy]
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: leyline_user
+          POSTGRES_PASSWORD: leyline_password
+          POSTGRES_DB: leyline_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: |
+          docker load --input /tmp/leyline-api.tar
+          docker images
+
+      - name: Start application container
+        run: |
+          docker run -d \
+            --name leyline-api \
+            --network host \
+            -e DATABASE_URL="postgresql://leyline_user:leyline_password@localhost:5432/leyline_db" \
+            -e REDIS_URL="redis://localhost:6379" \
+            -e ENVIRONMENT="test" \
+            -p 3000:3000 \
+            leyline-api:main
+
+      - name: Wait for application to be ready
+        run: |
+          echo "Waiting for application to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+              echo "Application is ready!"
+              break
+            fi
+            echo "Attempt $i: Application not ready yet, waiting..."
+            sleep 10
+          done
+
+      - name: Run comprehensive API tests
+        run: |
+          echo "Testing health endpoints..."
+          curl -f http://localhost:3000/health
+          curl -f http://localhost:3000/ready
+          curl -f http://localhost:3000/live
+          
+          echo "Testing metrics endpoint..."
+          curl -f http://localhost:3000/metrics
+          
+          echo "Testing authenticated endpoints..."
+          # Test without API key (should fail)
+          if curl -f http://localhost:3000/ 2>/dev/null; then
+            echo "ERROR: Root endpoint should require authentication"
+            exit 1
+          fi
+          
+          # Test with API key (should succeed)
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:3000/
+          
+          echo "Testing DNS lookup..."
+          curl -f -H "X-API-Key: leyline-api-key-2024" \
+            "http://localhost:3000/v1/tools/lookup?domain=example.com"
+          
+          echo "Testing IP validation..."
+          curl -f -H "X-API-Key: leyline-api-key-2024" \
+            "http://localhost:3000/v1/tools/validate?ip=8.8.8.8"
+
+      - name: Run pytest integration tests
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+          
+          # Run tests against running application
+          RUNNING_APP_URL=http://localhost:3000 pytest tests/ -v --tb=short
+        env:
+          DATABASE_URL: "postgresql://leyline_user:leyline_password@localhost:5432/leyline_db"
+          REDIS_URL: "redis://localhost:6379"
+
+      - name: Check application logs
+        if: always()
+        run: |
+          echo "Application logs:"
+          docker logs leyline-api
+
+  # Phase 5: Kong API Gateway Testing
+  kong-integration-test:
+    name: Kong API Gateway Integration
+    runs-on: ubuntu-latest
+    needs: app-integration-test
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: leyline_user
+          POSTGRES_PASSWORD: leyline_password
+          POSTGRES_DB: leyline_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      kong-database:
+        image: postgres:13
+        env:
+          POSTGRES_USER: kong
+          POSTGRES_PASSWORD: kongpassword
+          POSTGRES_DB: kong
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: |
+          docker load --input /tmp/leyline-api.tar
+
+      - name: Create Docker network
+        run: |
+          docker network create leyline-network
+
+      - name: Start application
+        run: |
+          docker run -d \
+            --name leyline-api \
+            --network leyline-network \
+            -e DATABASE_URL="postgresql://leyline_user:leyline_password@host.docker.internal:5432/leyline_db" \
+            -e REDIS_URL="redis://host.docker.internal:6379" \
+            -e ENVIRONMENT="test" \
+            leyline-api:main
+
+      - name: Run Kong migrations
+        run: |
+          docker run --rm \
+            --network leyline-network \
+            -e KONG_DATABASE=postgres \
+            -e KONG_PG_HOST=host.docker.internal \
+            -e KONG_PG_PORT=5433 \
+            -e KONG_PG_USER=kong \
+            -e KONG_PG_PASSWORD=kongpassword \
+            -e KONG_PG_DATABASE=kong \
+            kong:3.4 kong migrations bootstrap
+
+      - name: Start Kong Gateway
+        run: |
+          docker run -d \
+            --name kong \
+            --network leyline-network \
+            -e KONG_DATABASE=postgres \
+            -e KONG_PG_HOST=host.docker.internal \
+            -e KONG_PG_PORT=5433 \
+            -e KONG_PG_USER=kong \
+            -e KONG_PG_PASSWORD=kongpassword \
+            -e KONG_PG_DATABASE=kong \
+            -e KONG_PROXY_ACCESS_LOG=/dev/stdout \
+            -e KONG_ADMIN_ACCESS_LOG=/dev/stdout \
+            -e KONG_PROXY_ERROR_LOG=/dev/stderr \
+            -e KONG_ADMIN_ERROR_LOG=/dev/stderr \
+            -e KONG_ADMIN_LISTEN=0.0.0.0:8001 \
+            -e KONG_PROXY_LISTEN=0.0.0.0:8000 \
+            -p 8000:8000 \
+            -p 8001:8001 \
+            kong:3.4
+
+      - name: Wait for Kong to be ready
+        run: |
+          echo "Waiting for Kong to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8001/status > /dev/null 2>&1; then
+              echo "Kong is ready!"
+              break
+            fi
+            echo "Attempt $i: Kong not ready yet, waiting..."
+            sleep 10
+          done
+
+      - name: Configure Kong services and routes
+        run: |
+          # Create service
+          curl -i -X POST http://localhost:8001/services/ \
+            --data "name=leyline-api" \
+            --data "url=http://leyline-api:3000"
+          
+          # Create routes
+          curl -i -X POST http://localhost:8001/services/leyline-api/routes \
+            --data "name=health-route" \
+            --data "paths[]=/health" \
+            --data "strip_path=false"
+          
+          curl -i -X POST http://localhost:8001/services/leyline-api/routes \
+            --data "name=api-route" \
+            --data "paths[]=/v1" \
+            --data "strip_path=false"
+          
+          # Create consumer and API key
+          curl -i -X POST http://localhost:8001/consumers/ \
+            --data "username=test-client"
+          
+          curl -i -X POST http://localhost:8001/consumers/test-client/key-auth \
+            --data "key=test-api-key-2024"
+          
+          # Enable key-auth plugin
+          curl -i -X POST http://localhost:8001/routes/api-route/plugins \
+            --data "name=key-auth"
+          
+          # Enable rate limiting
+          curl -i -X POST http://localhost:8001/routes/health-route/plugins \
+            --data "name=rate-limiting" \
+            --data "config.minute=100"
+
+      - name: Test Kong API Gateway
+        run: |
+          echo "Testing Kong health check..."
+          curl -f http://localhost:8000/health
+          
+          echo "Testing Kong API endpoints..."
+          # Test without API key (should fail)
+          if curl -f http://localhost:8000/v1/tools/validate?ip=8.8.8.8 2>/dev/null; then
+            echo "ERROR: API endpoint should require authentication through Kong"
+            exit 1
+          fi
+          
+          # Test with API key (should succeed)
+          curl -f -H "apikey: test-api-key-2024" \
+            "http://localhost:8000/v1/tools/validate?ip=8.8.8.8"
+          
+          echo "Kong integration test completed successfully!"
+
+      - name: Check container logs
+        if: always()
+        run: |
+          echo "=== Application logs ==="
+          docker logs leyline-api
+          echo "=== Kong logs ==="
+          docker logs kong
+
+  # Phase 6: Observability Testing
+  observability-test:
+    name: Observability & Monitoring Test
+    runs-on: ubuntu-latest
+    needs: kong-integration-test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: |
+          docker load --input /tmp/leyline-api.tar
+
+      - name: Start observability stack
+        run: |
+          # Start the application with observability
+          docker-compose up -d leyline-api redis prometheus grafana
+          
+          # Wait for services
+          sleep 30
+
+      - name: Test Prometheus metrics
+        run: |
+          echo "Testing Prometheus metrics endpoint..."
+          curl -f http://localhost:3000/metrics
+          
+          echo "Testing Prometheus scraping..."
+          # Wait for Prometheus to scrape metrics
+          sleep 10
+          
+          # Check if Prometheus can reach the application
+          curl -f http://localhost:9090/-/healthy
+
+      - name: Test Grafana
+        run: |
+          echo "Testing Grafana readiness..."
+          for i in {1..20}; do
+            if curl -f http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "Grafana is ready!"
+              break
+            fi
+            echo "Attempt $i: Grafana not ready yet, waiting..."
+            sleep 10
+          done
+
+      - name: Generate load and verify metrics
+        run: |
+          echo "Generating load to test metrics..."
+          
+          # Generate some traffic
+          for i in {1..10}; do
+            curl -f http://localhost:3000/health > /dev/null 2>&1 &
+            curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:3000/ > /dev/null 2>&1 &
+          done
+          wait
+          
+          # Wait for metrics to be collected
+          sleep 20
+          
+          # Check if metrics are being collected
+          curl -s http://localhost:3000/metrics | grep -E "(request_count|request_latency)" || {
+            echo "ERROR: Application metrics not found"
+            exit 1
+          }
+          
+          echo "Observability test completed successfully!"
+
+      - name: Check observability logs
+        if: always()
+        run: |
+          echo "=== Application logs ==="
+          docker logs leyline-api
+          echo "=== Prometheus logs ==="
+          docker logs prometheus
+          echo "=== Grafana logs ==="
+          docker logs grafana
+
+  # Phase 7: Final Report
+  generate-report:
+    name: Generate Test Report
+    runs-on: ubuntu-latest
+    needs: [localstack-deploy, app-integration-test, kong-integration-test, observability-test]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Generate test report
+        run: |
+          echo "# LocalStack CI/CD Pipeline Test Report" > test-report.md
+          echo "## Pipeline Execution Summary" >> test-report.md
+          echo "- **Date**: $(date)" >> test-report.md
+          echo "- **Commit**: ${{ github.sha }}" >> test-report.md
+          echo "- **Branch**: ${{ github.ref_name }}" >> test-report.md
+          echo "" >> test-report.md
+          
+          echo "## Test Results" >> test-report.md
+          echo "| Component | Status |" >> test-report.md
+          echo "|-----------|--------|" >> test-report.md
+          echo "| Code Quality & Security | ${{ needs.lint-and-security.result }} |" >> test-report.md
+          echo "| Docker Build & Scan | ${{ needs.build-and-scan.result }} |" >> test-report.md
+          echo "| LocalStack Infrastructure | ${{ needs.localstack-deploy.result }} |" >> test-report.md
+          echo "| Application Integration | ${{ needs.app-integration-test.result }} |" >> test-report.md
+          echo "| Kong API Gateway | ${{ needs.kong-integration-test.result }} |" >> test-report.md
+          echo "| Observability | ${{ needs.observability-test.result }} |" >> test-report.md
+          echo "" >> test-report.md
+          
+          echo "## Artifacts Generated" >> test-report.md
+          echo "- Security scan reports" >> test-report.md
+          echo "- Docker image vulnerability scan" >> test-report.md
+          echo "- Terraform infrastructure graph" >> test-report.md
+          echo "- Application test results" >> test-report.md
+          echo "" >> test-report.md
+          
+          echo "## Next Steps" >> test-report.md
+          echo "1. Review security scan results" >> test-report.md
+          echo "2. Validate infrastructure deployment" >> test-report.md
+          echo "3. Monitor application performance" >> test-report.md
+          echo "4. Update documentation if needed" >> test-report.md
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-report
+          path: test-report.md
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('test-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 LocalStack CI/CD Pipeline Results\n\n${report}`
+            });

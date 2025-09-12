@@ -1,0 +1,72 @@
+# Prometheus Configuration for LocalStack Demo Environment
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'leyline-dns-localstack'
+    environment: 'demo'
+
+rule_files:
+  - "rules/localstack/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # LeyLine DNS Service (LocalStack Demo)
+  - job_name: 'leyline-dns-service-localstack'
+    static_configs:
+      - targets: ['leyline-api:3000', 'localhost:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http
+    # No authentication required for metrics endpoint
+
+  # Node Exporter (for system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis Metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+
+  # PostgreSQL Metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+
+  # Kong API Gateway Metrics
+  - job_name: 'kong-gateway'
+    static_configs:
+      - targets: ['kong:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Docker Container Metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: '/metrics'
+
+  # LocalStack Metrics (if available)
+  - job_name: 'localstack'
+    static_configs:
+      - targets: ['localstack:4566']
+    metrics_path: '/_localstack/health'
+    scrape_interval: 30s
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        target_label: service
+        replacement: localstack
