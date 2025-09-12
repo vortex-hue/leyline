@@ -11,16 +11,42 @@ terraform {
     }
   }
   
-  # Uncomment for remote state management
-  # backend "s3" {
-  #   bucket = "leyline-terraform-state"
-  #   key    = "infrastructure/terraform.tfstate"
-  #   region = "us-west-2"
-  # }
+  # Local state for LocalStack demo
+  # No remote backend needed for demo purposes
 }
 
 provider "aws" {
-  region = var.aws_region
+  region     = var.aws_region
+  access_key = "test"
+  secret_key = "test"
+  
+  # LocalStack endpoints
+  endpoints {
+    apigateway     = "http://localhost:4566"
+    cloudformation = "http://localhost:4566"
+    cloudwatch     = "http://localhost:4566"
+    dynamodb       = "http://localhost:4566"
+    ec2            = "http://localhost:4566"
+    ecs            = "http://localhost:4566"
+    elasticache    = "http://localhost:4566"
+    elbv2          = "http://localhost:4566"
+    iam            = "http://localhost:4566"
+    lambda         = "http://localhost:4566"
+    logs           = "http://localhost:4566"
+    rds            = "http://localhost:4566"
+    route53        = "http://localhost:4566"
+    s3             = "http://localhost:4566"
+    secretsmanager = "http://localhost:4566"
+    sns            = "http://localhost:4566"
+    sqs            = "http://localhost:4566"
+    ssm            = "http://localhost:4566"
+  }
+  
+  # LocalStack configuration
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+  s3_use_path_style          = true
   
   default_tags {
     tags = {
@@ -28,6 +54,7 @@ provider "aws" {
       Environment = var.environment
       ManagedBy   = "Terraform"
       Owner       = "DevOps-Team"
+      Demo        = "LocalStack"
     }
   }
 }
@@ -277,26 +304,9 @@ resource "aws_secretsmanager_secret_version" "jwt_secret" {
   secret_string = random_password.jwt_secret.result
 }
 
-# Route 53 (Optional)
-resource "aws_route53_zone" "main" {
-  count = var.create_route53_zone ? 1 : 0
-  name  = var.domain_name
-  
-  tags = local.common_tags
-}
-
-resource "aws_route53_record" "api" {
-  count   = var.create_route53_zone ? 1 : 0
-  zone_id = aws_route53_zone.main[0].zone_id
-  name    = "api.${var.domain_name}"
-  type    = "A"
-  
-  alias {
-    name                   = module.alb.dns_name
-    zone_id                = module.alb.zone_id
-    evaluate_target_health = true
-  }
-}
+# Route 53 (Simplified for LocalStack demo)
+# Note: Route53 features are simplified for LocalStack demonstration
+# In a production AWS environment, you would configure proper DNS here
 
 # CloudWatch Alarms
 module "cloudwatch_alarms" {

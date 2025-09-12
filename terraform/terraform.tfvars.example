@@ -1,50 +1,57 @@
-# LeyLine DNS Service - Terraform Variables Example
-# Copy this file to terraform.tfvars and customize the values
+# LeyLine DNS Service - LocalStack Demo Configuration
+# Copy this file to terraform.tfvars and customize values as needed
 
 # General Configuration
 project_name = "leyline"
-environment  = "dev"
-aws_region   = "us-west-2"
+environment  = "demo"
+aws_region   = "us-east-1"
 
-# VPC Configuration
+# VPC Configuration (LocalStack demo)
 public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-alb_ingress_cidrs    = ["0.0.0.0/0"]  # Restrict this in production
+alb_ingress_cidrs    = ["0.0.0.0/0"]
 
-# ECS Configuration
+# ECS Configuration (Simplified for demo)
 ecs_cpu              = 512
 ecs_memory           = 1024
 ecs_min_capacity     = 1
-ecs_max_capacity     = 10
+ecs_max_capacity     = 3
 ecs_target_cpu_util  = 70
 ecs_target_mem_util  = 80
-container_image_uri  = "your-account.dkr.ecr.us-west-2.amazonaws.com/leyline-api:latest"
+container_image_uri  = "leyline-api:latest"
 
-# RDS Configuration
+# RDS Configuration (LocalStack compatible)
 rds_instance_class                = "db.t3.micro"
 rds_allocated_storage             = 20
 rds_max_allocated_storage         = 100
 rds_backup_retention_period       = 7
 rds_backup_window                 = "03:00-04:00"
 rds_maintenance_window            = "sun:04:00-sun:05:00"
-rds_monitoring_interval           = 60
-rds_performance_insights_enabled  = true
+rds_monitoring_interval           = 0
+rds_performance_insights_enabled  = false
 
-# Redis Configuration
+# Redis Configuration (LocalStack)
 redis_num_cache_nodes      = 1
 redis_parameter_group_name = "default.redis7"
 
 # Monitoring Configuration
-log_retention_days = 30
-sns_topic_arn      = ""  # Optional: SNS topic for notifications
+log_retention_days = 7
+sns_topic_arn      = ""
 
-# SSL Configuration
-certificate_arn = ""  # Optional: ACM certificate ARN for HTTPS
+# SSL Configuration (Not needed for LocalStack demo)
+certificate_arn = ""
 
-# DNS Configuration
-domain_name           = ""  # Optional: Domain name for the service
+# DNS Configuration (Simplified for demo)
+domain_name           = ""
 create_route53_zone   = false
 
-# Cost Optimization
-enable_spot_instances = true
-enable_graviton       = true
+# Cost Optimization (Not applicable for LocalStack)
+enable_spot_instances = false
+enable_graviton       = false
+
+# LocalStack Demo Notes:
+# - All AWS services will be emulated locally on port 4566
+# - No real AWS costs incurred
+# - Perfect for development and demonstration
+# - Some advanced AWS features may not be available
+# - SSL certificates and Route53 are simplified for demo

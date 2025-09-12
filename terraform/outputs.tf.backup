@@ -155,15 +155,15 @@ output "ecs_log_group_arn" {
   value       = aws_cloudwatch_log_group.ecs_logs.arn
 }
 
-# Route 53 Outputs
+# Route 53 Outputs (Simplified for LocalStack demo)
 output "route53_zone_id" {
-  description = "ID of the Route 53 hosted zone"
-  value       = var.create_route53_zone ? aws_route53_zone.main[0].zone_id : null
+  description = "Route53 not configured in LocalStack demo"
+  value       = "N/A - LocalStack Demo"
 }
 
 output "api_dns_name" {
-  description = "DNS name of the API"
-  value       = var.create_route53_zone ? aws_route53_record.api[0].name : null
+  description = "Use ALB DNS name for LocalStack demo"
+  value       = "Use alb_dns_name output for testing"
 }
 
 # Service URLs
