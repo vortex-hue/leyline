@@ -344,11 +344,11 @@ graph LR
 curl http://localhost:8000/health
 
 # API endpoints (authentication required)
-curl -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/
+curl -H "X-API-Key: 2bYXuh9vkpqDwx0W7N0EXumK1rZWKqOP" http://localhost:3000/
 
 # DNS lookup
 curl -X POST -H "X-API-Key: leyline-api-key-2024" \
-  "http://localhost:8000/v1/tools/lookup?domain=example.com"
+  "http://localhost:3000/v1/tools/lookup?domain=example.com"
 
 # IP validation
 curl -H "X-API-Key: leyline-api-key-2024" \

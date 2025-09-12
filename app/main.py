@@ -61,7 +61,7 @@ app = FastAPI(
         },
         {
             "name": "metrics",
-            "description": "Prometheus metrics endpoint (API key required)",
+            "description": "Prometheus metrics endpoint (no authentication required)",
         },
     ]
 )
