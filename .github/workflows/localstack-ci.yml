@@ -79,6 +79,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -244,8 +249,9 @@ jobs:
 
       - name: Run Integration Tests
         run: |
-          pip install -r requirements.txt
-          pytest tests/ -v --tb=short
+          # Use the same Python environment as the main job
+          python -m pip install -r requirements.txt
+          python -m pytest tests/ -v --tb=short
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/leyline_db"
           REDIS_URL: "redis://localhost:6379"
