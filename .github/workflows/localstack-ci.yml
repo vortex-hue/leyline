@@ -28,7 +28,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -60,7 +60,7 @@ jobs:
 
 
       - name: Upload security artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-reports
@@ -68,8 +68,6 @@ jobs:
             bandit-report.json
             safety-report.json
             pylint-output.txt
-        env:
-          ACTIONS_RUNTIME_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Phase 2: Deploy and Test API Management Layer
   deploy-api-management:
@@ -234,7 +232,7 @@ jobs:
           curl -f http://localhost:3000/metrics | grep -q "leyline_" || exit 1
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
@@ -242,5 +240,3 @@ jobs:
             terraform/localstack-plan.txt
             pytest.xml
             test-report.html
-        env:
-          ACTIONS_RUNTIME_TOKEN: ${{ secrets.GITHUB_TOKEN }}
