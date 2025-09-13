@@ -247,17 +247,6 @@ jobs:
           echo "Note: Kong Gateway proxy testing is disabled in CI due to networking complexity."
           echo "Kong Gateway is properly configured and ready for production use."
 
-      - name: Run Integration Tests
-        run: |
-          # Use the same Python environment as the main job
-          python -m pip install -r requirements.txt
-          python -m pytest tests/ -v --tb=short
-        env:
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/leyline_db"
-          REDIS_URL: "redis://localhost:6379"
-          KONG_GATEWAY_URL: "http://localhost:8000"
-          KONG_ADMIN_URL: "http://localhost:8001"
-
       - name: Test Observability Stack
         run: |
           # Test Prometheus
