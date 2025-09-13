@@ -250,11 +250,11 @@ jobs:
       - name: Run Integration Tests
         run: |
           # Use the same Python environment as the main job
-          docker-compose exec leyline bash
+          python -m pip install -r requirements.txt
           
           # Run pytest with non-failing mode for non-critical tests
           echo "Running integration tests..."
-          if python -m pytest tests/test_api.py; then
+          if python -m pytest tests/ -v --tb=short --junitxml=test-results.xml; then
             echo "✅ All integration tests passed"
           else
             echo "⚠️  Some integration tests failed, but continuing..."
