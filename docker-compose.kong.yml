@@ -86,7 +86,7 @@ services:
         # Create service
         curl -i -X POST http://kong:8001/services/ \
           --data "name=leyline-api" \
-          --data "url=http://leyline:3000"
+          --data "url=http://host.docker.internal:3000"
 
         # Create route for health endpoint (no auth required)
         curl -i -X POST http://kong:8001/services/leyline-api/routes \

@@ -18,7 +18,7 @@ echo "Kong is ready! Setting up services and routes..."
 echo "Creating LeyLine API service..."
 curl -i -X POST http://localhost:8001/services/ \
   --data "name=leyline-api" \
-  --data "url=http://leyline:3000"
+  --data "url=http://host.docker.internal:3000"
 
 # Create route for health endpoint (no auth required)
 echo "Creating health route..."
