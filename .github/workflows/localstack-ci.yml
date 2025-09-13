@@ -206,14 +206,16 @@ jobs:
 
       - name: Test Full Stack Integration
         run: |
-          # Test application health
+          # Test application health endpoints (no auth required)
           curl -f http://localhost:3000/health || exit 1
+          curl -f http://localhost:3000/ready || exit 1
+          curl -f http://localhost:3000/live || exit 1
           curl -f http://localhost:3000/metrics || exit 1
           
-          # Test application endpoints directly
-          curl -f http://localhost:3000/ || exit 1
-          curl -f http://localhost:3000/lookup?domain=example.com || exit 1
-          curl -f http://localhost:3000/validate?domain=example.com || exit 1
+          # Test application endpoints with API key
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:3000/ || exit 1
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:3000/lookup?domain=example.com || exit 1
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:3000/validate?domain=example.com || exit 1
           
           echo "✅ Full stack integration tests passed!"
           echo "Note: Kong Gateway proxy testing is disabled in CI due to networking complexity."
