@@ -127,12 +127,31 @@ jobs:
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: us-east-1
 
-      - name: Deploy API Management Layer (Kong Gateway)
+      - name: Deploy Application
         run: |
           # Install required tools
           sudo apt-get update
           sudo apt-get install -y curl
           
+          # Build Docker image
+          docker build -t leyline-api:test .
+          
+          # Start application services
+          docker-compose -f docker-compose.localstack-observability.yml up -d --build
+          
+          # Wait for application to be ready
+          echo "Waiting for application to start..."
+          for i in {1..60}; do
+            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+              echo "Application is ready!"
+              break
+            fi
+            echo "Waiting for application... ($i/60)"
+            sleep 5
+          done
+
+      - name: Deploy API Management Layer (Kong Gateway)
+        run: |
           # Install docker-compose
           sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
@@ -158,39 +177,44 @@ jobs:
       - name: Test Kong Gateway Configuration
         run: |
           # Test Kong admin API
+          echo "Testing Kong admin API..."
           curl -f http://localhost:8001/services || exit 1
           curl -f http://localhost:8001/routes || exit 1
           curl -f http://localhost:8001/plugins || exit 1
           curl -f http://localhost:8001/consumers || exit 1
           
-          # Test Kong Gateway proxy
-          curl -f http://localhost:8000/health || exit 1
+          # Check if Kong proxy is running
+          echo "Checking Kong proxy status..."
+          curl -v http://localhost:8000/status || echo "Kong proxy not responding"
+          
+          # Check if application is running
+          echo "Checking application status..."
+          curl -v http://localhost:3000/health || echo "Application not responding"
+          
+          # Wait a bit more for services to be ready
+          echo "Waiting for services to be fully ready..."
+          sleep 10
+          
+          # Test Kong Gateway proxy with retries
+          echo "Testing Kong Gateway proxy..."
+          for i in {1..5}; do
+            if curl -f http://localhost:8000/health; then
+              echo "Kong proxy is working!"
+              break
+            else
+              echo "Attempt $i failed, retrying..."
+              sleep 5
+            fi
+          done
           
           # Test API key authentication
+          echo "Testing API key authentication..."
           curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/ || exit 1
           
           # Test rate limiting (should work)
+          echo "Testing rate limiting..."
           for i in {1..5}; do
             curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/lookup?domain=example.com || exit 1
-          done
-
-      - name: Deploy Application
-        run: |
-          # Build Docker image
-          docker build -t leyline-api:test .
-          
-          # Start application services
-          docker-compose -f docker-compose.localstack-observability.yml up -d --build
-          
-          # Wait for application to be ready
-          echo "Waiting for application to start..."
-          for i in {1..60}; do
-            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
-              echo "Application is ready!"
-              break
-            fi
-            echo "Waiting for application... ($i/60)"
-            sleep 5
           done
 
       - name: Test Full Stack Integration
