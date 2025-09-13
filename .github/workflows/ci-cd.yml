@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r pytest.txt
+          pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
           pip install pylint bandit safety
 
@@ -54,7 +54,7 @@ jobs:
       - name: Dependency security check
         run: |
           safety check --json --output safety-report.json || true
-
+          
       - name: Upload security artifacts
         uses: actions/upload-artifact@v4
         if: always()
@@ -107,7 +107,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_PASSWORD }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
