@@ -212,7 +212,7 @@ jobs:
     
     services:
       localstack:
-        image: localstack/localstack:${{ env.LOCALSTACK_VERSION }}
+        image: localstack/localstack:latest
         ports:
           - 4566:4566
         env:
