@@ -1,0 +1,246 @@
+name: LocalStack CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  LOCALSTACK_VERSION: "latest"
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # Phase 1: Code Quality & Security
+  lint-and-security:
+    name: Lint, Test & Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+          pip install pylint bandit
+          # Install older safety version compatible with pydantic 1.x
+          pip install "safety<3.0.0"
+
+      - name: Lint with pylint
+        run: |
+          pylint app --exit-zero --output-format=colorized | tee pylint-output.txt
+        continue-on-error: true
+
+      - name: Security scan with Bandit
+        run: |
+          bandit -r app/ -f json -o bandit-report.json || true
+
+      - name: Dependency security check
+        run: |
+          safety check --json > safety-report.json || true
+
+
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+            pylint-output.txt
+        env:
+          ACTIONS_RUNTIME_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Phase 2: Deploy and Test API Management Layer
+  deploy-api-management:
+    name: Deploy API Management Layer
+    runs-on: ubuntu-latest
+    needs: lint-and-security
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start LocalStack
+        run: |
+          docker run -d \
+            --name localstack \
+            -p 4566:4566 \
+            -e SERVICES=ec2,ecs,elbv2,rds,elasticache,s3,iam,secretsmanager,logs,cloudformation,cloudwatch \
+            -e DEBUG=1 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            localstack/localstack:latest
+
+      - name: Wait for LocalStack
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:4566/_localstack/health > /dev/null 2>&1; then
+              echo "LocalStack is ready!"
+              break
+            fi
+            echo "Waiting for LocalStack..."
+            sleep 10
+          done
+
+      - name: Install AWS CLI and tools
+        run: |
+          pip install awscli-local boto3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Deploy Infrastructure with Terraform
+        working-directory: terraform
+        run: |
+          terraform init
+          terraform plan -out=localstack-plan.txt
+          terraform apply -auto-approve localstack-plan.txt
+          
+          # Test deployed resources
+          awslocal s3 ls
+          awslocal ec2 describe-vpcs
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Deploy API Management Layer (Kong Gateway)
+        run: |
+          # Start Kong Gateway with database
+          docker-compose -f docker-compose.kong.yml up -d --build
+          
+          # Wait for Kong to be ready
+          echo "Waiting for Kong Gateway to start..."
+          for i in {1..60}; do
+            if curl -f http://localhost:8001/status > /dev/null 2>&1; then
+              echo "Kong Gateway is ready!"
+              break
+            fi
+            echo "Waiting for Kong Gateway... ($i/60)"
+            sleep 5
+          done
+          
+          # Run Kong setup script
+          chmod +x kong-setup.sh
+          ./kong-setup.sh
+
+      - name: Test Kong Gateway Configuration
+        run: |
+          # Test Kong admin API
+          curl -f http://localhost:8001/services || exit 1
+          curl -f http://localhost:8001/routes || exit 1
+          curl -f http://localhost:8001/plugins || exit 1
+          curl -f http://localhost:8001/consumers || exit 1
+          
+          # Test Kong Gateway proxy
+          curl -f http://localhost:8000/health || exit 1
+          
+          # Test API key authentication
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/ || exit 1
+          
+          # Test rate limiting (should work)
+          for i in {1..5}; do
+            curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/lookup?domain=example.com || exit 1
+          done
+
+      - name: Deploy Application
+        run: |
+          # Build Docker image
+          docker build -t leyline-api:test .
+          
+          # Start application services
+          docker-compose -f docker-compose.localstack-observability.yml up -d --build
+          
+          # Wait for application to be ready
+          echo "Waiting for application to start..."
+          for i in {1..60}; do
+            if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+              echo "Application is ready!"
+              break
+            fi
+            echo "Waiting for application... ($i/60)"
+            sleep 5
+          done
+
+      - name: Test Full Stack Integration
+        run: |
+          # Test application health
+          curl -f http://localhost:3000/health || exit 1
+          curl -f http://localhost:3000/metrics || exit 1
+          
+          # Test through Kong Gateway
+          curl -f http://localhost:8000/health || exit 1
+          curl -f http://localhost:8000/metrics || exit 1
+          
+          # Test authenticated endpoints through Kong
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/ || exit 1
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/lookup?domain=example.com || exit 1
+          curl -f -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/validate?domain=example.com || exit 1
+          
+          # Test rate limiting through Kong
+          echo "Testing rate limiting..."
+          for i in {1..10}; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/lookup?domain=test$i.com)
+            echo "Request $i: HTTP $response"
+          done
+          
+          # Test CORS
+          curl -f -H "Origin: http://localhost:3000" -H "X-API-Key: leyline-api-key-2024" http://localhost:8000/ || exit 1
+
+      - name: Run Integration Tests
+        run: |
+          pip install -r requirements.txt
+          pytest tests/ -v --tb=short
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/leyline_db"
+          REDIS_URL: "redis://localhost:6379"
+          KONG_GATEWAY_URL: "http://localhost:8000"
+          KONG_ADMIN_URL: "http://localhost:8001"
+
+      - name: Test Observability Stack
+        run: |
+          # Test Prometheus
+          curl -f http://localhost:9090/api/v1/targets || exit 1
+          
+          # Test Grafana
+          curl -f http://localhost:3001/api/health || exit 1
+          
+          # Test metrics collection
+          curl -f http://localhost:3000/metrics | grep -q "leyline_" || exit 1
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            terraform/localstack-plan.txt
+            pytest.xml
+            test-report.html
+        env:
+          ACTIONS_RUNTIME_TOKEN: ${{ secrets.GITHUB_TOKEN }}
