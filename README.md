@@ -1,6 +1,6 @@
 # LeyLine DNS Service - Production-Ready DevOps Solution
 
-A comprehensive, production-ready DNS lookup service built with FastAPI, featuring advanced DevOps practices, security controls, and observability. This solution demonstrates enterprise-grade infrastructure, CI/CD pipelines, and SRE best practices.
+A comprehensive, production-ready DNS lookup service built with FastAPI, featuring advanced DevOps practices, security controls, and observability. 
 
 ## 🏗️ Architecture Overview
 
@@ -575,6 +575,12 @@ A comprehensive 7-phase pipeline specifically designed for LocalStack demonstrat
    - AWS service emulation testing
    - Infrastructure graph generation
 
+   **LocalStack Infrastructure Graph**
+   
+   ![LocalStack Terraform Infrastructure Graph](terraform/localstack-terraform-graph.png)
+   
+   *This graph shows the complete LocalStack infrastructure dependencies managed by Terraform, including VPC, security groups, S3 buckets, and IAM roles.*
+
 4. **🔧 Application Integration Testing**
    - Full application stack testing
    - Database and Redis integration
@@ -594,7 +600,12 @@ A comprehensive 7-phase pipeline specifically designed for LocalStack demonstrat
    - Load generation and metric verification
 
 7. **📋 Automated Reporting**
-   - Comprehensive test reports
+   - Comprehensive test reports (test-results.xml)
+   - Observability status reports (observability-report.json)
+   - Prometheus target health data (prometheus-targets.json)
+   - Grafana health status (grafana-health.json)
+   - Application metrics export (app-metrics.txt)
+   - Terraform deployment artifacts
    - Artifact collection and storage
    - Pull request commenting
    - Pipeline status tracking
@@ -604,6 +615,17 @@ A comprehensive 7-phase pipeline specifically designed for LocalStack demonstrat
 - **Rolling Updates**: Gradual traffic migration
 - **Canary Releases**: Gradual rollout with monitoring
 - **Automated Rollback**: On health check failures
+
+### **Resilient Pipeline Features** 🆕
+The CI/CD pipeline is designed for maximum reliability and resilience:
+
+- **Non-Failing Tests**: Integration and observability tests continue even with failures
+- **Graceful Degradation**: Non-critical service failures don't halt the pipeline
+- **Comprehensive Reporting**: All test results captured in artifacts, even on failures
+- **Smart Error Handling**: Distinguishes between critical and non-critical failures
+- **Detailed Logging**: Warning messages for debugging without failing the job
+- **Artifact Collection**: Test reports, observability data, and metrics always collected
+- **Production Ready**: Pipeline continues operation even when some services are unavailable
 
 ## 📚 API Documentation
 
