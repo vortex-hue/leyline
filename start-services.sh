@@ -146,9 +146,5 @@ echo "🛑 To stop all services:"
 echo "  ./stop-services.sh"
 echo ""
 
-# Open API Key Manager in browser (if on macOS)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    print_status "Opening API Key Manager in browser..."
-fi
 
 print_success "Setup complete! All services are running."

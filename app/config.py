@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
-    app_name: str = "Leyline Take Home |  DNS Service"
+    app_name: str = "Zama |  DNS Service"
     version: str = "0.1.0"
     db_url: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/dbname")
     environment: str = os.getenv("ENVIRONMENT", "local")
