@@ -57,7 +57,6 @@ jobs:
         run: |
           safety check --json --output safety-report.json || true
 
-
       - name: Upload security artifacts
         uses: actions/upload-artifact@v4
         if: always()
