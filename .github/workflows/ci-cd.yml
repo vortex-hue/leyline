@@ -41,6 +41,8 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
           pip install pylint bandit safety
+          # Fix FastAPI/Pydantic compatibility
+          pip install "fastapi>=0.100.0" "pydantic>=2.0.0,<3.0.0" "pydantic-core>=2.0.0"
 
       - name: Lint with pylint
         run: |
@@ -54,7 +56,8 @@ jobs:
       - name: Dependency security check
         run: |
           safety check --json --output safety-report.json || true
-          
+
+
       - name: Upload security artifacts
         uses: actions/upload-artifact@v4
         if: always()
@@ -86,8 +89,8 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Extract metadata
         id: meta
@@ -95,7 +98,7 @@ jobs:
         with:
           images: |
             leyline-api
-            ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('{0}/leyline-api', secrets.DOCKERHUB_USERNAME) || '' }}
+            ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('{0}/leyline-api', secrets.DOCKER_USERNAME) || '' }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -107,7 +110,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_PASSWORD }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
