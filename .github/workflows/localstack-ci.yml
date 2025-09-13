@@ -129,6 +129,14 @@ jobs:
 
       - name: Deploy API Management Layer (Kong Gateway)
         run: |
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y curl
+          
+          # Install docker-compose
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          
           # Start Kong Gateway with database
           docker-compose -f docker-compose.kong.yml up -d --build
           
