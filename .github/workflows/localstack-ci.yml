@@ -140,6 +140,14 @@ jobs:
           # Add docker-compose to PATH
           export PATH="/usr/local/bin:$PATH"
           
+          # Clean up any existing containers to prevent conflicts
+          echo "Cleaning up existing containers..."
+          docker-compose -f docker-compose.localstack-observability.yml down --remove-orphans || true
+          docker-compose -f docker-compose.kong.yml down --remove-orphans || true
+          
+          # Remove any existing containers with conflicting names
+          docker rm -f localstack redis postgres kong kong-database kong-migration kong-setup prometheus grafana alertmanager node-exporter cadvisor redis-exporter postgres-exporter leyline-api || true
+          
           # Build Docker image
           docker build -t leyline-api:test .
           
@@ -273,3 +281,19 @@ jobs:
             terraform/localstack-plan.txt
             pytest.xml
             test-report.html
+
+      - name: Cleanup Containers
+        if: always()
+        run: |
+          # Clean up all containers to prevent conflicts in future runs
+          echo "Cleaning up containers..."
+          docker-compose -f docker-compose.localstack-observability.yml down --remove-orphans || true
+          docker-compose -f docker-compose.kong.yml down --remove-orphans || true
+          
+          # Remove any remaining containers
+          docker rm -f localstack redis postgres kong kong-database kong-migration kong-setup prometheus grafana alertmanager node-exporter cadvisor redis-exporter postgres-exporter leyline-api || true
+          
+          # Clean up unused images to save space
+          docker image prune -f || true
+          
+          echo "✅ Cleanup completed!"
